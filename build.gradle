@@ -1,0 +1,87 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.2.11'
+    id 'io.spring.dependency-management' version '1.1.6'
+    id("io.gatling.gradle") version "3.13.1"
+    id "de.undercouch.download" version "5.3.0"
+}
+
+group = 'payment'
+version = '0.0.1-SNAPSHOT'
+
+gatling {
+
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    runtimeOnly 'com.h2database:h2'
+
+    implementation 'io.gatling:gatling-core-java:3.13.1'
+    implementation 'io.gatling:gatling-http-java:3.13.1'
+
+    implementation 'com.newrelic.agent.java:newrelic-agent:8.8.0'
+
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+task downloadNewrelic(type: Download) {
+    mkdir 'newrelic'
+    src 'https://download.newrelic.com/newrelic/java-agent/newrelic-agent/current/newrelic-java.zip'
+    dest file('newrelic')
+}
+
+task unzipNewrelic(type: Copy) {
+    from zipTree(file('newrelic/newrelic-java.zip'))
+    into rootDir
+}
+
+bootRun {
+    jvmArgs = [
+            '-javaagent:/opt/newrelic/newrelic.jar'
+    ]
+}
+
+bootRun {
+    jvmArgs = [
+            '-Xms2g', // 두 옵션은 맞춰주고 미리 설정해줘야 힙 리사이징 발생 안함
+            '-Xmx2g',
+            '-XX:+UseParallelGC',                       // Throughput에 최적화된 Parallel GC 사용
+            '-XX:ParallelGCThreads=8',                  // 병렬 GC를 위한 스레드 수 (코어 수에 따라 조정)
+            '-XX:InitiatingHeapOccupancyPercent=70',    // 70% 사용 시 GC 시작 (힙 활용률 증가)
+            '-XX:MaxHeapFreeRatio=30',                  // 힙의 여유 공간 비율 최소화
+            '-XX:MinHeapFreeRatio=10',                  // 힙의 여유 공간 비율 최소화
+            '-XX:MaxMetaspaceSize=1g',                  // 메타스페이스 크기 최대 1GB로 설정
+            '-XX:MetaspaceSize=128m',                   // 초기 메타스페이스 크기
+            '-XX:+UseStringDeduplication',              // 문자열 중복 제거 활성화
+            '-Xlog:gc*:file=gc.log:time,uptime,level,tags', // GC 로그 파일 저장
+            '-XX:+UnlockExperimentalVMOptions',         // 실험적 옵션 활성화
+            '-XX:+AlwaysPreTouch'                       // 애플리케이션 시작 시 힙 메모리 미리 할당
+    ]
+}
+
+bootJar {
+    launchScript()
+}
